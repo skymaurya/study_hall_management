@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Study Hall</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+    <style>
+        body {
+            font-family: Arial;
+            background: #f5f5f5;
+            margin: 0;
+            color: #111827;
+        }
+
+        .page {
+            padding: 20px 16px 28px;
+            max-width: 760px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin: 0 0 8px;
+            font-size: 30px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #4b5563;
+            margin: 0 0 18px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 14px;
+            box-shadow: 0 0 6px rgba(0,0,0,0.08);
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .stat-value.pending {
+            color: #b45309;
+        }
+
+        .nav-grid {
+            display: grid;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .box {
+            background: white;
+            padding: 18px 16px;
+            border-radius: 12px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            text-decoration: none;
+            color: #111827;
+            box-shadow: 0 0 8px rgba(0,0,0,0.08);
+            border: 1px solid #e5e7eb;
+        }
+
+        .box:active {
+            background: #e5edf7;
+            border-color: #93c5fd;
+        }
+
+        @media (min-width: 700px) {
+            .stats-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+
+            .nav-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="page">
+    <div class="utility-bar">
+        <a href="/account" class="utility-link">Change Login</a>
+        <a href="/logout" class="utility-link logout">Logout</a>
+    </div>
+    {% include "_flash_messages.html" %}
+
+    <h1>Study Hall</h1>
+    <p class="subtitle">Seat management, student records, and fee tracking in one place.</p>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Active Students</div>
+            <div class="stat-value">{{ dashboard.active_students }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Empty Seats</div>
+            <div class="stat-value">{{ dashboard.empty_seats }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Half Seats</div>
+            <div class="stat-value">{{ dashboard.half_seats }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Full Seats</div>
+            <div class="stat-value">{{ dashboard.full_seats }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Students With Dues</div>
+            <div class="stat-value">{{ dashboard.students_with_dues }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Total Pending Amount</div>
+            <div class="stat-value pending">{{ dashboard.total_pending_amount }}</div>
+        </div>
+    </div>
+
+    <div class="nav-grid">
+        <a href="/seats" class="box">Seats</a>
+        <a href="/add_student" class="box">Add New Student</a>
+        <a href="/payments" class="box">Payment</a>
+        <a href="/students" class="box">Students</a>
+        <a href="/dues" class="box">Unpaid Dues</a>
+    </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Payment</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+
+    <style>
+        body {
+            font-family: Arial;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 15px;
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-top: 0;
+            margin-bottom: 18px;
+        }
+
+        .card {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.1);
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 6px;
+        }
+
+        select, button {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            margin-bottom: 14px;
+            font-size: 14px;
+        }
+
+        button {
+            background: #1d4ed8;
+            color: white;
+            border: none;
+            font-weight: bold;
+        }
+
+        .student-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .student-link {
+            display: block;
+            text-decoration: none;
+            color: #111;
+            background: #f8fafc;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 12px;
+        }
+
+        .student-link.selected {
+            border-color: #1d4ed8;
+            background: #eff6ff;
+        }
+
+        .meta {
+            font-size: 13px;
+            color: #555;
+            margin-top: 4px;
+        }
+
+        .month-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .month-row input {
+            width: auto;
+            margin: 0;
+        }
+
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 14px;
+        }
+
+        .success {
+            background: #dcfce7;
+            color: #166534;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 14px;
+        }
+
+        .hint {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .pending-box {
+            margin-top: 12px;
+            padding: 12px;
+            border-radius: 8px;
+            background: #fff7ed;
+        }
+
+        .pending-chip {
+            display: inline-block;
+            background: #fed7aa;
+            color: #9a3412;
+            border-radius: 999px;
+            padding: 4px 10px;
+            font-size: 12px;
+            font-weight: bold;
+            margin: 4px 6px 0 0;
+        }
+
+        .back-link {
+            display: block;
+            width: fit-content;
+            text-align: center;
+            text-decoration: none;
+            background: #eef2f7;
+            color: #111827;
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            font-weight: bold;
+            margin-top: 12px;
+            margin-left: auto;
+            margin-right: auto;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+        }
+
+        .back-link:active {
+            background: #dbe4f0;
+            border-color: #94a3b8;
+            box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.18);
+        }
+    </style>
+</head>
+
+<body>
+
+<a href="/" class="back-link">Back to Home</a>
+{% include "_flash_messages.html" %}
+
+<h2>Payment</h2>
+<p class="subtitle">Choose a seat, then the student, then select which fee month the student is paying for.</p>
+
+<div class="card">
+    <form method="GET">
+        <label for="seat_id">Select Seat</label>
+        <select id="seat_id" name="seat_id" onchange="this.form.submit()">
+            <option value="">Choose a seat</option>
+            {% for seat in seats %}
+                <option value="{{ seat.id }}" {% if selected_seat_id == seat.id %}selected{% endif %}>
+                    Seat {{ seat.id }} ({{ seat.type }})
+                </option>
+            {% endfor %}
+        </select>
+    </form>
+</div>
+
+{% if selected_seat_id %}
+    <div class="card">
+        <h3>Students in Seat {{ selected_seat_id }}</h3>
+
+        {% if students_in_seat %}
+            <div class="student-list">
+                {% for student in students_in_seat %}
+                    <a
+                        href="/payments?seat_id={{ selected_seat_id }}&student_id={{ student.id }}"
+                        class="student-link {% if selected_student and selected_student.id == student.id %}selected{% endif %}"
+                    >
+                        <div><b>{{ student.name }}</b></div>
+                        <div class="meta">Shift: {{ student.shift|capitalize }}</div>
+                        <div class="meta">Monthly Fee: {{ student.monthly_fee }}</div>
+                    </a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="hint">No active student is assigned to this seat.</p>
+        {% endif %}
+    </div>
+{% endif %}
+
+{% if error and not selected_student %}
+    <div class="card">
+        <div class="error">{{ error }}</div>
+    </div>
+{% endif %}
+
+{% if selected_student %}
+    <div class="card">
+        <h3>Payment for {{ selected_student.name }}</h3>
+
+        {% if error %}
+            <div class="error">{{ error }}</div>
+        {% endif %}
+
+        {% if success %}
+            <div class="success">{{ success }}</div>
+        {% endif %}
+
+        <p><b>Seat:</b> {{ selected_student.seat_id }}</p>
+        <p><b>Shift:</b> {{ selected_student.shift|capitalize }}</p>
+        <p><b>Joining Date:</b> {{ selected_student.joining_date|full_date }}</p>
+        <p><b>Monthly Fee:</b> {{ selected_student.monthly_fee }}</p>
+        <p><b>Billing Starts From:</b> {{ selected_student.joining_date|full_date }}</p>
+        <p><b>Payment Received Date:</b> {{ today|full_date }}</p>
+
+        {% if unpaid_months %}
+            <div class="pending-box">
+                <b>All Pending Fee Months:</b><br>
+                {% for month in unpaid_months %}
+                    <span class="pending-chip">{{ month|month_label }}</span>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {% if selectable_months %}
+            <form method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="save_payment">
+                <input type="hidden" name="seat_id" value="{{ selected_student.seat_id }}">
+                <input type="hidden" name="student_id" value="{{ selected_student.id }}">
+
+                <label>Fee Month(s) Being Paid</label>
+                <p class="hint">The student may pay on today's date, but you should select the actual fee month being cleared. Billing begins from the joining month.</p>
+                {% for month in selectable_months %}
+                    <label class="month-row">
+                        <input type="checkbox" name="months" value="{{ month }}">
+                        <span>{{ month|month_label }} - {{ selected_student.monthly_fee }}</span>
+                    </label>
+                {% endfor %}
+
+                <button type="submit">Save Payment</button>
+            </form>
+        {% else %}
+            <p class="hint">No fee month is pending for this student right now.</p>
+        {% endif %}
+    </div>
+{% endif %}
+
+<a href="/" class="back-link">Back to Home</a>
+
+</body>
+</html>

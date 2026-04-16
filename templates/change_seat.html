@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Change Seat</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+    <style>
+        body {
+            font-family: Arial;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 15px;
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #374151;
+            margin-top: 0;
+            margin-bottom: 18px;
+        }
+
+        .card {
+            background: white;
+            color: #111827;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.1);
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 6px;
+        }
+
+        select, button {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            margin-bottom: 14px;
+            font-size: 14px;
+        }
+
+        button {
+            background: #1d4ed8;
+            color: white;
+            border: none;
+            font-weight: bold;
+        }
+
+        .secondary {
+            background: #e5e7eb;
+            color: #111;
+        }
+
+        .seat-list {
+            display: grid;
+            gap: 10px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .seat-item {
+            border: 2px solid #cbd5e1;
+            border-radius: 10px;
+            padding: 12px;
+            background: #f8fafc;
+            color: #111827;
+            min-height: 170px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+        }
+
+        .seat-item:active {
+            transform: scale(0.98);
+        }
+
+        .seat-item.selected {
+            border-color: #1d4ed8;
+            box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.18);
+        }
+
+        .seat-item.empty {
+            background: #dcfce7;
+            border-color: #16a34a;
+        }
+
+        .seat-item.partial {
+            background: #fef3c7;
+            border-color: #d97706;
+        }
+
+        .seat-item.limited {
+            background: #fee2e2;
+            border-color: #dc2626;
+        }
+
+        .seat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .seat-title {
+            font-size: 17px;
+            font-weight: bold;
+            color: #111827;
+        }
+
+        .status-chip {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #111827;
+            background: rgba(255,255,255,0.75);
+        }
+
+        .seat-meta {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .occupants {
+            margin-top: 8px;
+            color: #1f2937;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 14px;
+        }
+
+        .hint {
+            color: #374151;
+            font-size: 14px;
+        }
+
+        .back-link {
+            display: block;
+            width: fit-content;
+            text-align: center;
+            text-decoration: none;
+            background: #eef2f7;
+            color: #111827;
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            font-weight: bold;
+            margin-top: 12px;
+            margin-left: auto;
+            margin-right: auto;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+        }
+
+        .back-link:active {
+            background: #dbe4f0;
+            border-color: #94a3b8;
+            box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.18);
+        }
+
+        @media (min-width: 700px) {
+            .seat-list {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+    </style>
+</head>
+<body>
+
+<a href="/" class="back-link">Back to Home</a>
+{% include "_flash_messages.html" %}
+
+<h2>Change Seat for {{ student.name }}</h2>
+<p class="subtitle">Choose the plan first, then pick a matching seat. Fee updates automatically.</p>
+
+<div class="card">
+    <p><b>Current Seat:</b> {{ student.seat_id }}</p>
+    <p><b>Current Shift:</b> {{ student.shift|capitalize }}</p>
+    <p><b>Current Monthly Fee:</b> {{ student.monthly_fee }}</p>
+</div>
+
+<div class="card">
+    <form method="GET">
+        <label for="seat_plan">Seat Type</label>
+        <select id="seat_plan" name="seat_plan" onchange="this.form.submit()">
+            <option value="full" {% if selected_plan == 'full' %}selected{% endif %}>Full</option>
+            <option value="half" {% if selected_plan == 'half' %}selected{% endif %}>Half</option>
+        </select>
+
+        {% if selected_plan == 'half' %}
+            <label for="shift">Shift</label>
+            <select id="shift" name="shift" onchange="this.form.submit()">
+                <option value="morning" {% if selected_shift == 'morning' %}selected{% endif %}>Morning</option>
+                <option value="evening" {% if selected_shift == 'evening' %}selected{% endif %}>Evening</option>
+            </select>
+        {% else %}
+            <input type="hidden" name="shift" value="full">
+        {% endif %}
+
+        <input type="hidden" name="show_all" value="{% if show_all %}1{% else %}0{% endif %}">
+    </form>
+
+    <p><b>Updated Monthly Fee:</b> {{ fee_amount }}</p>
+
+    <form method="GET">
+        <input type="hidden" name="seat_plan" value="{{ selected_plan }}">
+        <input type="hidden" name="shift" value="{{ selected_shift }}">
+        <input type="hidden" name="show_all" value="{% if show_all %}0{% else %}1{% endif %}">
+        <button type="submit" class="secondary">
+            {% if show_all %}Show Only Matching Seats{% else %}Show All Available Seats{% endif %}
+        </button>
+    </form>
+</div>
+
+<div class="card">
+    <h3>Available Seats</h3>
+
+    {% if error %}
+        <div class="error">{{ error }}</div>
+    {% endif %}
+
+    {% if seat_options %}
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="seat_plan" value="{{ selected_plan }}">
+            <input type="hidden" name="shift" value="{{ selected_shift }}">
+
+            <label for="seat_id">Choose Seat</label>
+            <select id="seat_id" name="seat_id" required>
+                {% for seat in seat_options %}
+                    <option value="{{ seat.id }}">
+                        Seat {{ seat.id }} -
+                        Available:
+                        {% for shift in seat.available_shifts %}
+                            {{ shift|capitalize }}{% if not loop.last %}, {% endif %}
+                        {% endfor %}
+                    </option>
+                {% endfor %}
+            </select>
+
+            <div class="seat-list">
+                {% for seat in seat_options %}
+                    <div
+                        class="seat-item {% if seat.occupants|length == 0 %}empty{% elif seat.available_shifts|length == 1 %}limited{% else %}partial{% endif %} {% if loop.first %}selected{% endif %}"
+                        data-seat-id="{{ seat.id }}"
+                    >
+                        <div class="seat-header">
+                            <div class="seat-title">Seat {{ seat.id }}</div>
+                            <div class="status-chip">
+                                {% if seat.occupants|length == 0 %}
+                                    Empty
+                                {% elif seat.available_shifts|length == 1 %}
+                                    One Shift Left
+                                {% else %}
+                                    Multiple Shifts Open
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="seat-meta">
+                            Available:
+                            {% for shift in seat.available_shifts %}
+                                {{ shift|capitalize }}{% if not loop.last %}, {% endif %}
+                            {% endfor %}
+                        </div>
+                        {% if seat.occupants %}
+                            <div class="occupants">
+                                Current students:
+                                {% for occupant in seat.occupants %}
+                                    {{ occupant.name }} ({{ occupant.shift|capitalize }}){% if not loop.last %}, {% endif %}
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="occupants">Seat is fully empty.</div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+
+            <button type="submit">Update Seat Plan</button>
+        </form>
+    {% else %}
+        <p class="hint">No seats match the selected plan right now. Try another shift or show all available seats.</p>
+    {% endif %}
+</div>
+
+<a href="/" class="back-link">Back to Home</a>
+<a href="/seat/{{ student.seat_id }}" class="back-link">Back to Seat Detail</a>
+
+<script>
+    const seatSelect = document.getElementById("seat_id");
+    const seatCards = document.querySelectorAll(".seat-item");
+
+    if (seatSelect && seatCards.length) {
+        const syncSelectedCard = () => {
+            seatCards.forEach((card) => {
+                card.classList.toggle("selected", card.dataset.seatId === seatSelect.value);
+            });
+        };
+
+        seatCards.forEach((card) => {
+            card.addEventListener("click", () => {
+                seatSelect.value = card.dataset.seatId;
+                syncSelectedCard();
+            });
+        });
+
+        syncSelectedCard();
+    }
+</script>
+
+</body>
+</html>

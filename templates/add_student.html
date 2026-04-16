@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Add New Student</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+
+    <style>
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: Arial;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 15px;
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-top: 0;
+            margin-bottom: 18px;
+        }
+
+        .card {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.1);
+        }
+
+        .seat-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .seat-link {
+            text-decoration: none;
+            color: #1f2937;
+            border-radius: 10px;
+            padding: 16px 12px;
+            min-height: 125px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            font-weight: bold;
+            border: 1px solid transparent;
+            box-sizing: border-box;
+        }
+
+        .seat-link.empty {
+            background: #dff7e7;
+            border-color: #8fd3a8;
+        }
+
+        .seat-link.half {
+            background: #fff1d8;
+            border-color: #f1c27d;
+        }
+
+        .seat-link.full {
+            background: #fde2df;
+            border-color: #e9a8a2;
+        }
+
+        .seat-link.selected {
+            border-color: #1d4ed8;
+        }
+
+        .seat-link.unavailable {
+            opacity: 0.7;
+        }
+
+        .seat-no {
+            font-size: 20px;
+            margin-bottom: 6px;
+        }
+
+        .seat-status {
+            font-size: 15px;
+            margin-top: 6px;
+        }
+
+        .hint {
+            font-size: 13px;
+            color: #374151;
+            line-height: 1.4;
+            margin-top: 10px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 6px;
+        }
+
+        input, select, button {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            margin-bottom: 14px;
+            font-size: 14px;
+        }
+
+        button {
+            background: #1d4ed8;
+            color: white;
+            border: none;
+            font-weight: bold;
+        }
+
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 14px;
+        }
+
+        .success {
+            background: #dcfce7;
+            color: #166534;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 14px;
+        }
+
+        .actions {
+            text-align: center;
+        }
+
+        .actions a {
+            display: inline-block;
+            text-align: center;
+            text-decoration: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            margin-top: 10px;
+            border: 1px solid transparent;
+            font-weight: bold;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+        }
+
+        .payment-link {
+            background: #15803d;
+            color: white;
+            border-color: #166534;
+        }
+
+        .payment-link:active {
+            background: #166534;
+            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2);
+        }
+
+        .back-link {
+            display: block;
+            width: fit-content;
+            background: #eef2f7;
+            color: #111827;
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            font-weight: bold;
+            text-decoration: none;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .back-link:active {
+            background: #dbe4f0;
+            border-color: #94a3b8;
+            box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.18);
+        }
+
+        @media (min-width: 700px) {
+            .seat-grid {
+                grid-template-columns: repeat(5, 1fr);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<a class="back-link" href="/">Back to Home</a>
+{% include "_flash_messages.html" %}
+
+<h2>Add New Student</h2>
+<p class="subtitle">Pick an available seat first, then assign the student with the correct shift.</p>
+
+<div class="card">
+    <div class="seat-grid">
+        {% for seat in seat_options %}
+            <a
+                href="/add_student?seat_id={{ seat.id }}#assign-form"
+                class="seat-link {{ seat.display_type }} {% if selected_seat and seat.id == selected_seat.id %}selected{% endif %} {% if not seat.is_available %}unavailable{% endif %}"
+            >
+                <div>
+                    <div class="seat-no">Seat {{ seat.id }}</div>
+                    <div class="seat-status">
+                        {% if seat.display_type == "empty" %}
+                            Empty
+                        {% elif seat.display_type == "full" %}
+                            Full
+                        {% else %}
+                            Half
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="hint">
+                    {% if seat.is_available %}
+                        Available:
+                        {% for shift in seat.available_shifts %}
+                            {{ shift|capitalize }}{% if not loop.last %}, {% endif %}
+                        {% endfor %}
+                    {% else %}
+                        Not available
+                    {% endif %}
+                </div>
+            </a>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="card" id="assign-form">
+    {% if success_student_id %}
+        <h3>Seat {{ success_seat_id }} Assigned</h3>
+
+        {% if error %}
+            <div class="error">{{ error }}</div>
+        {% endif %}
+
+        <div class="success">Student assigned successfully.</div>
+        <p class="subtitle" style="margin-bottom: 0;">You can collect payment for this student now, or pick another available seat.</p>
+
+        <div class="actions">
+            <a class="payment-link" href="/payments?seat_id={{ success_seat_id }}&student_id={{ success_student_id }}">Go To Payment</a>
+            <a class="back-link" href="/add_student">Assign Another Student</a>
+            <a class="back-link" href="/">Back to Home</a>
+        </div>
+    {% elif selected_seat and selected_seat.is_available %}
+        <h3>Assign Seat {{ selected_seat.id }}</h3>
+
+        {% if error %}
+            <div class="error">{{ error }}</div>
+        {% endif %}
+
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="seat_id" value="{{ selected_seat.id }}">
+
+            <label for="name">Student Name</label>
+            <input id="name" name="name" type="text" required>
+
+            <label for="phone">Phone Number</label>
+            <input id="phone" name="phone" type="text" required>
+
+            <label for="shift">Available Shift</label>
+            <select id="shift" name="shift" required>
+                {% for shift in selected_seat.available_shifts %}
+                    <option value="{{ shift }}">{{ shift|capitalize }}</option>
+                {% endfor %}
+            </select>
+
+            <label for="joining_date">Joining Date</label>
+            <input id="joining_date" name="joining_date" type="date" required>
+
+            <label for="monthly_fee">Monthly Fee</label>
+            <input
+                id="monthly_fee"
+                name="monthly_fee"
+                type="number"
+                value="{{ 1000 if selected_seat.available_shifts[0] == 'full' else 500 }}"
+                readonly
+            >
+
+            <button type="submit">Assign Seat</button>
+        </form>
+
+        <div class="actions">
+            <a class="back-link" href="/">Back to Home</a>
+        </div>
+    {% else %}
+        <h3>No seat available for assignment</h3>
+        <p class="hint">All seats are currently occupied. Remove or change a student seat to free up space.</p>
+        <div class="actions">
+            <a class="back-link" href="/">Back to Home</a>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+    const shiftField = document.getElementById("shift");
+    const feeField = document.getElementById("monthly_fee");
+
+    if (shiftField && feeField) {
+        const updateFee = () => {
+            feeField.value = shiftField.value === "full" ? 1000 : 500;
+        };
+
+        shiftField.addEventListener("change", updateFee);
+        updateFee();
+    }
+</script>
+
+</body>
+</html>

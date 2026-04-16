@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Payment History</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+    <style>
+        body {
+            font-family: Arial;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 15px;
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-top: 0;
+            margin-bottom: 18px;
+        }
+
+        .card {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.1);
+        }
+
+        .row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            background: #f8fafc;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .meta {
+            color: #444;
+            margin: 4px 0;
+        }
+
+        .pending-box {
+            margin-top: 14px;
+            padding: 12px;
+            border-radius: 8px;
+            background: #fff7ed;
+        }
+
+        .pending-chip {
+            display: inline-block;
+            background: #fed7aa;
+            color: #9a3412;
+            border-radius: 999px;
+            padding: 4px 10px;
+            font-size: 12px;
+            font-weight: bold;
+            margin: 4px 6px 0 0;
+        }
+
+        .back-link {
+            display: block;
+            width: fit-content;
+            text-align: center;
+            text-decoration: none;
+            background: #eef2f7;
+            color: #111827;
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            font-weight: bold;
+            margin-top: 12px;
+            margin-left: auto;
+            margin-right: auto;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+        }
+
+        .back-link:active {
+            background: #dbe4f0;
+            border-color: #94a3b8;
+            box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.18);
+        }
+    </style>
+</head>
+<body>
+
+<a href="/" class="back-link">Back to Home</a>
+{% include "_flash_messages.html" %}
+
+<h2>Payment History</h2>
+<p class="subtitle">Full payment history for {{ student.name }}</p>
+
+<div class="card">
+    <p class="meta"><b>Name:</b> {{ student.name }}</p>
+    <p class="meta"><b>Phone:</b> {{ student.phone }}</p>
+    <p class="meta"><b>Seat:</b> {{ student.seat_id or 'Not assigned' }}</p>
+    <p class="meta"><b>Shift:</b> {{ student.shift|capitalize }}</p>
+    <p class="meta"><b>Joining Date:</b> {{ student.joining_date|full_date }}</p>
+    <p class="meta"><b>Monthly Fee:</b> {{ student.monthly_fee }}</p>
+</div>
+
+<div class="card">
+    <h3>Paid Months</h3>
+    {% if payment_history %}
+        {% for item in payment_history %}
+            <div class="row">
+                <div>
+                    <div><b>{{ item.month|month_label }}</b></div>
+                    <div class="meta">Paid on {{ item.payment_date|full_date }}</div>
+                </div>
+                <div><b>{{ item.amount }}</b></div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <p class="meta">No payment history found yet.</p>
+    {% endif %}
+
+    <div class="pending-box">
+        <b>Pending Unpaid Months:</b><br>
+        {% if unpaid_months %}
+            {% for month in unpaid_months %}
+                <span class="pending-chip">{{ month|month_label }}</span>
+            {% endfor %}
+        {% else %}
+            <span class="meta">No unpaid months pending.</span>
+        {% endif %}
+    </div>
+</div>
+
+<a href="/student/{{ student.id }}/edit-phone?return_to={{ ('/student/' ~ student.id ~ '/payments')|urlencode }}" class="back-link">Edit Mobile Number</a>
+<a href="/" class="back-link">Back to Home</a>
+<a href="/students?seat_id={{ student.seat_id }}" class="back-link">Back to Student Details</a>
+
+</body>
+</html>

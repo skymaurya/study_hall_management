@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Seat Detail</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+
+    <style>
+        body {
+            font-family: Arial;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 15px;
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 8px;
+        }
+
+        .seat-type {
+            text-align: center;
+            color: #666;
+            margin-top: 0;
+            margin-bottom: 18px;
+        }
+
+        .card {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.1);
+        }
+
+        .meta {
+            color: #555;
+            margin-bottom: 6px;
+        }
+
+        .payment-box {
+            background: #f8f9fb;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 10px;
+        }
+
+        .btn {
+            display: block;
+            margin-top: 10px;
+            padding: 10px;
+            text-align: center;
+            border-radius: 5px;
+            text-decoration: none;
+            color: white;
+        }
+
+        .remove { background-color: red; }
+        .change { background-color: blue; }
+
+        .back {
+            margin-top: 20px;
+            display: block;
+            width: fit-content;
+            text-align: center;
+            text-decoration: none;
+            background: #eef2f7;
+            color: #111827;
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            font-weight: bold;
+            margin-left: auto;
+            margin-right: auto;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+        }
+
+        .back:active {
+            background: #dbe4f0;
+            border-color: #94a3b8;
+            box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.18);
+        }
+    </style>
+</head>
+
+<body>
+
+<a href="/" class="back">Back to Home</a>
+{% include "_flash_messages.html" %}
+
+<h2>Seat {{ seat.id }}</h2>
+<p class="seat-type">Seat Type: <b>{{ seat.type|capitalize }}</b></p>
+
+{% if students|length == 0 %}
+
+<div class="card">
+    <p>This seat is empty.</p>
+</div>
+
+{% else %}
+
+    {% for s in students %}
+    <div class="card">
+        <p><b>Name:</b> {{ s.name }}</p>
+        <p><b>Phone:</b> {{ s.phone }}</p>
+        <p><b>Shift:</b> {{ s.shift|capitalize }}</p>
+        <p class="meta"><b>Seat Type:</b> {{ payment_summaries[s.id].seat_type|capitalize }}</p>
+
+        <div class="payment-box">
+            <p><b>Paid Till:</b> {{ payment_summaries[s.id].paid_till|month_label }}</p>
+            <p><b>Latest Due Month Status:</b>
+                {% if payment_summaries[s.id].last_due_month %}
+                    {% if payment_summaries[s.id].last_month_paid %}
+                        Paid ({{ payment_summaries[s.id].last_due_month|month_label }})
+                    {% else %}
+                        Unpaid ({{ payment_summaries[s.id].last_due_month|month_label }})
+                    {% endif %}
+                {% else %}
+                    No due month yet
+                {% endif %}
+            </p>
+            <p><b>Pending Months:</b> {{ payment_summaries[s.id].unpaid_count }}</p>
+        </div>
+
+        <a href="/change-seat/{{ s.id }}" class="btn change">Change Seat</a>
+        <form method="POST" action="/remove_student/{{ s.id }}" onsubmit="return confirm('Remove {{ s.name }} from this seat?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn remove">Remove</button>
+        </form>
+    </div>
+    {% endfor %}
+
+{% endif %}
+
+<a href="/" class="back">Back to Home</a>
+<a href="/seats" class="back">Back to Seats</a>
+
+</body>
+</html>

@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Students</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+
+    <style>
+        body {
+            font-family: Arial;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 15px;
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-top: 0;
+            margin-bottom: 18px;
+        }
+
+        .card {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.1);
+        }
+
+        .seat-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        .search-form {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .search-input {
+            flex: 1 1 220px;
+            min-width: 0;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            font-size: 14px;
+        }
+
+        .search-btn {
+            display: inline-block;
+            text-decoration: none;
+            background: #eef2f7;
+            color: #111827;
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            font-weight: bold;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+        }
+
+        .search-btn:active {
+            background: #dbe4f0;
+            border-color: #94a3b8;
+            box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.18);
+        }
+
+        .seat-link {
+            display: block;
+            text-decoration: none;
+            color: #111;
+            background: #f8fafc;
+            border: 2px solid #dbeafe;
+            border-radius: 10px;
+            padding: 12px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .seat-link.selected {
+            background: #dbeafe;
+            border-color: #2563eb;
+        }
+
+        .seat-sub {
+            display: block;
+            margin-top: 6px;
+            font-size: 12px;
+            color: #555;
+            font-weight: normal;
+        }
+
+        .student-head {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .active {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .inactive {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .meta {
+            color: #444;
+            margin: 4px 0;
+            font-size: 14px;
+        }
+
+        .student-block {
+            border-top: 1px solid #eef2f7;
+            padding-top: 14px;
+            margin-top: 14px;
+        }
+
+        .student-block:first-of-type {
+            border-top: none;
+            padding-top: 0;
+            margin-top: 0;
+        }
+
+        .pending-box {
+            margin-top: 14px;
+            padding: 12px;
+            border-radius: 8px;
+            background: #fff7ed;
+        }
+
+        .pending-title {
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #9a3412;
+        }
+
+        .pending-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .pending-chip {
+            background: #fed7aa;
+            color: #9a3412;
+            border-radius: 999px;
+            padding: 4px 10px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 12px;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #666;
+        }
+
+        .history-btn {
+            display: inline-block;
+            margin-top: 14px;
+            text-decoration: none;
+            background: #1d4ed8;
+            color: white;
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: 1px solid #1e40af;
+            font-weight: bold;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+        }
+
+        .history-btn:active {
+            background: #1e40af;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+
+        .back-link {
+            display: block;
+            width: fit-content;
+            text-align: center;
+            text-decoration: none;
+            background: #eef2f7;
+            color: #111827;
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            font-weight: bold;
+            margin-top: 12px;
+            margin-left: auto;
+            margin-right: auto;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+        }
+
+        .back-link:active {
+            background: #dbe4f0;
+            border-color: #94a3b8;
+            box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.18);
+        }
+
+        @media (max-width: 700px) {
+            .seat-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<a href="/" class="back-link">Back to Home</a>
+{% include "_flash_messages.html" %}
+
+<h2>Students</h2>
+<p class="subtitle">Tap a seat to view only that seat's student details.</p>
+
+<div class="card">
+    <form method="GET" class="search-form">
+        <input
+            type="text"
+            name="q"
+            class="search-input"
+            value="{{ search_query }}"
+            placeholder="Search by name, phone, or seat number"
+        >
+        <button type="submit" class="search-btn">Search</button>
+        {% if search_query %}
+            <a href="/students" class="search-btn">Clear</a>
+        {% endif %}
+    </form>
+</div>
+
+<div class="card">
+    <div class="seat-grid">
+        {% for seat_group in seat_groups %}
+            <a href="/students?seat_id={{ seat_group.seat_id }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}" class="seat-link {% if selected_seat_id == seat_group.seat_id %}selected{% endif %}">
+                Seat {{ seat_group.seat_id }}
+                <span class="seat-sub">{{ seat_group.students|length }} student{% if seat_group.students|length != 1 %}s{% endif %}</span>
+            </a>
+        {% endfor %}
+    </div>
+</div>
+
+{% if selected_seat_group %}
+    <div class="card">
+        <div class="section-title">Seat {{ selected_seat_group.seat_id }} Details</div>
+
+        {% for student in selected_seat_group.students %}
+            <div class="student-block">
+                <div class="student-head">
+                    <div>
+                        <div><b>{{ student.name }}</b></div>
+                        <div class="meta">{{ student.phone }}</div>
+                    </div>
+                    <span class="badge {{ student.status }}">{{ student.status|capitalize }}</span>
+                </div>
+
+                <div class="meta"><b>Seat Type:</b> {{ student.seat_type }}</div>
+                <div class="meta"><b>Shift:</b> {{ student.shift }}</div>
+                <div class="meta"><b>Joining Date:</b> {{ student.joining_date|full_date if student.joining_date else 'Not set' }}</div>
+                <div class="meta"><b>Monthly Fee:</b> {{ student.monthly_fee or 'Not set' }}</div>
+
+                <div class="pending-box">
+                    <div class="pending-title">All Pending Unpaid Months</div>
+                    {% if student.unpaid_months %}
+                        <div class="pending-list">
+                            {% for month in student.unpaid_months %}
+                                <span class="pending-chip">{{ month|month_label }}</span>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="meta">No unpaid months pending.</div>
+                    {% endif %}
+                </div>
+
+                <a href="/student/{{ student.id }}/edit-phone?return_to={{ ('/students?seat_id=' ~ selected_seat_group.seat_id)|urlencode }}" class="history-btn">Edit Mobile Number</a>
+                <a href="/student/{{ student.id }}/payments" class="history-btn">Payment History</a>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="card empty-state">
+        No seat selected or no students found for that seat.
+    </div>
+{% endif %}
+
+{% if inactive_students %}
+    <div class="card">
+        <div class="section-title">Inactive / Unassigned Students</div>
+        {% for student in inactive_students %}
+            <div class="student-block">
+                <div class="student-head">
+                    <div>
+                        <div><b>{{ student.name }}</b></div>
+                        <div class="meta">{{ student.phone }}</div>
+                    </div>
+                    <span class="badge {{ student.status }}">{{ student.status|capitalize }}</span>
+                </div>
+                <div class="meta"><b>Seat:</b> {% if student.seat_id %}{{ student.seat_id }}{% else %}Not assigned{% endif %}</div>
+                <div class="meta"><b>Shift:</b> {{ student.shift }}</div>
+                <div class="meta"><b>Joining Date:</b> {{ student.joining_date|full_date if student.joining_date else 'Not set' }}</div>
+                <div class="meta"><b>Monthly Fee:</b> {{ student.monthly_fee or 'Not set' }}</div>
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+
+<a href="/" class="back-link">Back to Home</a>
+
+</body>
+</html>

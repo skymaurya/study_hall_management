@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Unpaid Dues</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+    <style>
+        body {
+            font-family: Arial;
+            background: #f5f5f5;
+            margin: 0;
+            padding: 15px;
+            color: #111827;
+        }
+
+        .summary {
+            text-align: center;
+            font-size: 16px;
+            color: #7c2d12;
+            font-weight: bold;
+        }
+
+        .dues-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .due-item {
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            border-radius: 10px;
+            padding: 14px;
+        }
+
+        .due-name {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 6px;
+        }
+
+        .meta {
+            color: #7c2d12;
+            font-size: 14px;
+            line-height: 1.5;
+            margin: 3px 0;
+        }
+
+        .action-row {
+            margin-top: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .action-btn {
+            display: inline-block;
+            text-decoration: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-weight: bold;
+            border: 1px solid transparent;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+        }
+
+        .action-btn.pay {
+            background: #1d4ed8;
+            color: white;
+            border-color: #1e40af;
+        }
+
+        .action-btn.details {
+            background: #eef2f7;
+            color: #111827;
+            border-color: #cbd5e1;
+        }
+
+        .action-btn:active {
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+        }
+
+        .empty-text {
+            text-align: center;
+            color: #4b5563;
+        }
+    </style>
+</head>
+<body>
+
+<a href="/" class="back-link">Back to Home</a>
+{% include "_flash_messages.html" %}
+
+<h2 class="page-title">Unpaid Dues</h2>
+<p class="page-subtitle">Quick report of students who still have pending unpaid fee months.</p>
+
+<div class="surface-card">
+    <div class="summary">
+        Students With Dues: {{ unpaid_students|length }}<br>
+        Total Pending Amount: {{ total_pending_amount }}
+    </div>
+</div>
+
+<div class="dues-list">
+    {% if unpaid_students %}
+        {% for student in unpaid_students %}
+            <div class="due-item">
+                <div class="due-name">{{ student.name }}{% if student.seat_id %} - Seat {{ student.seat_id }}{% endif %}</div>
+                <div class="meta"><b>Phone:</b> {{ student.phone }}</div>
+                <div class="meta"><b>Oldest Unpaid Month:</b> {{ student.latest_unpaid_month|month_label }}</div>
+                <div class="meta"><b>Pending Months:</b> {{ student.pending_months }}</div>
+                <div class="meta"><b>Monthly Fee:</b> {{ student.monthly_fee }}</div>
+                <div class="meta"><b>Total Pending Amount:</b> {{ student.pending_amount }}</div>
+                <div class="action-row">
+                    <a href="/payments?seat_id={{ student.seat_id }}&student_id={{ student.id }}" class="action-btn pay">Go To Payment</a>
+                    <a href="/student/{{ student.id }}/payments" class="action-btn details">Payment History</a>
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="surface-card empty-text">No unpaid dues are pending right now.</div>
+    {% endif %}
+</div>
+
+<a href="/" class="back-link">Back to Home</a>
+
+</body>
+</html>
