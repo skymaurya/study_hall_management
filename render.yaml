@@ -7,15 +7,11 @@ services:
     envVars:
       - key: STUDY_HALL_ENV
         value: production
+      - key: DATABASE_URL
+        sync: false
       - key: STUDY_HALL_SECRET_KEY
         generateValue: true
       - key: STUDY_HALL_ADMIN_USER
         sync: false
       - key: STUDY_HALL_ADMIN_PASSWORD
         sync: false
-      - key: STUDY_HALL_DB_PATH
-        value: /var/data/database.db
-    disk:
-      name: study-hall-data
-      mountPath: /var/data
-      sizeGB: 1

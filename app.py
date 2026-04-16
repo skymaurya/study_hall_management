@@ -6,11 +6,78 @@ from datetime import date, datetime
 from flask import Flask, flash, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
+try:
+    import psycopg
+    from psycopg.rows import dict_row
+except ImportError:
+    psycopg = None
+    dict_row = None
+
 app = Flask(__name__)
 DEFAULT_SECRET_KEY = "study-hall-dev-secret"
 DEFAULT_ADMIN_USERNAME = "admin"
 DEFAULT_ADMIN_PASSWORD = "admin123"
 DEFAULT_APP_ENV = "development"
+
+
+class DBConnection:
+    def __init__(self, backend, raw_connection):
+        self.backend = backend
+        self.raw_connection = raw_connection
+
+    def adapt_query(self, query):
+        if self.backend == "postgres":
+            return query.replace("?", "%s")
+        return query
+
+    def execute(self, query, params=None):
+        cursor = self.raw_connection.execute(self.adapt_query(query), params or ())
+        return cursor
+
+    def executemany(self, query, param_sets):
+        if self.backend == "postgres":
+            cursor = self.raw_connection.cursor()
+            cursor.executemany(self.adapt_query(query), param_sets)
+            return cursor
+        return self.raw_connection.executemany(self.adapt_query(query), param_sets)
+
+    def cursor(self):
+        return DBCursor(self, self.raw_connection.cursor())
+
+    def commit(self):
+        self.raw_connection.commit()
+
+    def rollback(self):
+        self.raw_connection.rollback()
+
+    def close(self):
+        self.raw_connection.close()
+
+
+class DBCursor:
+    def __init__(self, connection, raw_cursor):
+        self.connection = connection
+        self.raw_cursor = raw_cursor
+
+    def execute(self, query, params=None):
+        self.raw_cursor.execute(
+            self.connection.adapt_query(query),
+            params or (),
+        )
+        return self
+
+    def executemany(self, query, param_sets):
+        self.raw_cursor.executemany(
+            self.connection.adapt_query(query),
+            param_sets,
+        )
+        return self
+
+    def fetchone(self):
+        return self.raw_cursor.fetchone()
+
+    def fetchall(self):
+        return self.raw_cursor.fetchall()
 
 
 def resolve_app_env():
@@ -32,6 +99,8 @@ def resolve_db_path(app_env):
 
 app.secret_key = os.environ.get("STUDY_HALL_SECRET_KEY", DEFAULT_SECRET_KEY)
 app.config["APP_ENV"] = resolve_app_env()
+app.config["DATABASE_URL"] = os.environ.get("DATABASE_URL", "").strip()
+app.config["DB_BACKEND"] = "postgres" if app.config["DATABASE_URL"] else "sqlite"
 app.config["ADMIN_USERNAME"] = os.environ.get("STUDY_HALL_ADMIN_USER", DEFAULT_ADMIN_USERNAME)
 app.config["ADMIN_PASSWORD"] = os.environ.get("STUDY_HALL_ADMIN_PASSWORD", DEFAULT_ADMIN_PASSWORD)
 app.config["DB_PATH"] = resolve_db_path(app.config["APP_ENV"])
@@ -65,17 +134,30 @@ def require_login():
 
 
 def ensure_db_directory():
+    if app.config["DB_BACKEND"] != "sqlite":
+        return
     db_dir = os.path.dirname(app.config["DB_PATH"])
     if db_dir:
         os.makedirs(db_dir, exist_ok=True)
 
 
 def get_db_connection():
+    if app.config["DB_BACKEND"] == "postgres":
+        if psycopg is None:
+            raise RuntimeError(
+                "PostgreSQL support requires psycopg. Install dependencies from requirements.txt."
+            )
+        raw_conn = psycopg.connect(
+            app.config["DATABASE_URL"],
+            row_factory=dict_row,
+        )
+        return DBConnection("postgres", raw_conn)
+
     ensure_db_directory()
-    conn = sqlite3.connect(app.config["DB_PATH"], timeout=10)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+    raw_conn = sqlite3.connect(app.config["DB_PATH"], timeout=10)
+    raw_conn.row_factory = sqlite3.Row
+    raw_conn.execute("PRAGMA foreign_keys = ON")
+    return DBConnection("sqlite", raw_conn)
 
 
 def get_csrf_token():
@@ -92,11 +174,28 @@ def inject_template_helpers():
 
 
 def get_table_columns(conn, table_name):
+    if conn.backend == "postgres":
+        rows = conn.execute(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = %s
+            """,
+            (table_name,),
+        ).fetchall()
+        return {row["column_name"] for row in rows}
+
     rows = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
     return {row["name"] for row in rows}
 
 
 def ensure_column(conn, table_name, column_name, definition):
+    if conn.backend == "postgres":
+        conn.execute(
+            f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {column_name} {definition}"
+        )
+        return
+
     columns = get_table_columns(conn, table_name)
     if column_name not in columns:
         conn.execute(
@@ -104,25 +203,77 @@ def ensure_column(conn, table_name, column_name, definition):
         )
 
 
-def ensure_schema(conn):
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS settings (
-            key TEXT PRIMARY KEY,
-            value TEXT
+def ensure_seat_validation_rules(conn):
+    if conn.backend == "postgres":
+        conn.execute(
+            """
+            CREATE OR REPLACE FUNCTION validate_student_seat_assignment()
+            RETURNS trigger AS $$
+            BEGIN
+                IF NEW.status = 'active' AND NEW.seat_id IS NOT NULL THEN
+                    IF NEW.shift = 'full' AND EXISTS (
+                        SELECT 1 FROM students
+                        WHERE seat_id = NEW.seat_id
+                          AND status = 'active'
+                          AND id <> COALESCE(NEW.id, -1)
+                    ) THEN
+                        RAISE EXCEPTION 'Full seat cannot share with another active student.';
+                    END IF;
+
+                    IF NEW.shift IN ('morning', 'evening') AND EXISTS (
+                        SELECT 1 FROM students
+                        WHERE seat_id = NEW.seat_id
+                          AND status = 'active'
+                          AND shift = 'full'
+                          AND id <> COALESCE(NEW.id, -1)
+                    ) THEN
+                        RAISE EXCEPTION 'Half seat cannot be assigned when a full student is already in the seat.';
+                    END IF;
+
+                    IF NEW.shift IN ('morning', 'evening') AND EXISTS (
+                        SELECT 1 FROM students
+                        WHERE seat_id = NEW.seat_id
+                          AND status = 'active'
+                          AND shift = NEW.shift
+                          AND id <> COALESCE(NEW.id, -1)
+                    ) THEN
+                        RAISE EXCEPTION 'This shift is already assigned in the selected seat.';
+                    END IF;
+                END IF;
+
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql
+            """
         )
-        """
-    )
-    ensure_column(conn, "students", "joining_date", "TEXT")
-    ensure_column(conn, "students", "monthly_fee", "REAL")
-    ensure_column(conn, "payments", "amount", "REAL")
-    ensure_column(conn, "payments", "payment_date", "TEXT")
-    conn.execute(
-        """
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_student_month
-        ON payments(student_id, month)
-        """
-    )
+        conn.execute(
+            """
+            DROP TRIGGER IF EXISTS trg_students_validate_insert ON students
+            """
+        )
+        conn.execute(
+            """
+            CREATE TRIGGER trg_students_validate_insert
+            BEFORE INSERT ON students
+            FOR EACH ROW
+            EXECUTE FUNCTION validate_student_seat_assignment()
+            """
+        )
+        conn.execute(
+            """
+            DROP TRIGGER IF EXISTS trg_students_validate_update ON students
+            """
+        )
+        conn.execute(
+            """
+            CREATE TRIGGER trg_students_validate_update
+            BEFORE UPDATE OF seat_id, shift, status ON students
+            FOR EACH ROW
+            EXECUTE FUNCTION validate_student_seat_assignment()
+            """
+        )
+        return
+
     conn.execute(
         """
         CREATE TRIGGER IF NOT EXISTS trg_students_validate_insert
@@ -181,6 +332,28 @@ def ensure_schema(conn):
         END
         """
     )
+
+
+def ensure_schema(conn):
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )
+        """
+    )
+    ensure_column(conn, "students", "joining_date", "TEXT")
+    ensure_column(conn, "students", "monthly_fee", "REAL")
+    ensure_column(conn, "payments", "amount", "REAL")
+    ensure_column(conn, "payments", "payment_date", "TEXT")
+    conn.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_student_month
+        ON payments(student_id, month)
+        """
+    )
+    ensure_seat_validation_rules(conn)
 
 
 def normalize_phone_number(raw_value, student_id, used_numbers):
@@ -765,6 +938,49 @@ def get_fee_for_shift(shift):
     return 1000.0 if shift == "full" else 500.0
 
 
+def insert_student_record(conn, name, phone, seat_id, shift, joining_date, monthly_fee):
+    if conn.backend == "postgres":
+        row = conn.execute(
+            """
+            INSERT INTO students (name, phone, seat_id, shift, joining_date, monthly_fee)
+            VALUES (?, ?, ?, ?, ?, ?)
+            RETURNING id
+            """,
+            (name, phone, seat_id, shift, joining_date, monthly_fee),
+        ).fetchone()
+        return row["id"]
+
+    conn.execute(
+        """
+        INSERT INTO students (name, phone, seat_id, shift, joining_date, monthly_fee)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (name, phone, seat_id, shift, joining_date, monthly_fee),
+    )
+    return conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+
+def save_payment_record(conn, student_id, month, amount, payment_date):
+    if conn.backend == "postgres":
+        conn.execute(
+            """
+            INSERT INTO payments (student_id, month, amount, payment_date)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT (student_id, month) DO NOTHING
+            """,
+            (student_id, month, amount, payment_date),
+        )
+        return
+
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO payments (student_id, month, amount, payment_date)
+        VALUES (?, ?, ?, ?)
+        """,
+        (student_id, month, amount, payment_date),
+    )
+
+
 def get_change_seat_options(conn, desired_shift=None, show_all=False, current_student_id=None):
     seat_rows = conn.execute("SELECT * FROM seats ORDER BY id").fetchall()
     options = []
@@ -1096,23 +1312,15 @@ def add_student():
             ).fetchone():
                 error = "An active student with this phone number already exists."
             else:
-                conn.execute(
-                    """
-                    INSERT INTO students (name, phone, seat_id, shift, joining_date, monthly_fee)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        name,
-                        phone,
-                        selected_seat_id,
-                        shift,
-                        joining_date,
-                        monthly_fee_value,
-                    )
+                student_id = insert_student_record(
+                    conn,
+                    name,
+                    phone,
+                    selected_seat_id,
+                    shift,
+                    joining_date,
+                    monthly_fee_value,
                 )
-                student_id = conn.execute(
-                    "SELECT last_insert_rowid()"
-                ).fetchone()[0]
                 update_seat_type(conn, selected_seat_id)
                 conn.commit()
                 success_student_id = student_id
@@ -1303,17 +1511,12 @@ def payments():
                 else:
                     payment_date = date.today().isoformat()
                     for month in selected_months:
-                        conn.execute(
-                            """
-                            INSERT OR IGNORE INTO payments (student_id, month, amount, payment_date)
-                            VALUES (?, ?, ?, ?)
-                            """,
-                            (
-                                selected_student_id,
-                                month,
-                                selected_student["monthly_fee"],
-                                payment_date,
-                            )
+                        save_payment_record(
+                            conn,
+                            selected_student_id,
+                            month,
+                            selected_student["monthly_fee"],
+                            payment_date,
                         )
                     conn.commit()
                     success = "Payment saved successfully."
@@ -1395,36 +1598,71 @@ def init_db():
     conn = get_db_connection()
     cur = conn.cursor()
 
-    # Seats table
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS seats (
-        id INTEGER PRIMARY KEY,
-        type TEXT
-    )
-    """)
+    if conn.backend == "postgres":
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS seats (
+                id INTEGER PRIMARY KEY,
+                type TEXT
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS students (
+                id SERIAL PRIMARY KEY,
+                name TEXT,
+                phone TEXT,
+                seat_id INTEGER REFERENCES seats(id) ON DELETE SET NULL,
+                shift TEXT,
+                status TEXT DEFAULT 'active',
+                joining_date TEXT,
+                monthly_fee DOUBLE PRECISION
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS payments (
+                id SERIAL PRIMARY KEY,
+                student_id INTEGER REFERENCES students(id) ON DELETE CASCADE,
+                month TEXT,
+                amount DOUBLE PRECISION,
+                payment_date TEXT
+            )
+            """
+        )
+    else:
+        # Seats table
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS seats (
+            id INTEGER PRIMARY KEY,
+            type TEXT
+        )
+        """)
 
-    # Students table
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS students (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
-        phone TEXT,
-        seat_id INTEGER,
-        shift TEXT,
-        status TEXT DEFAULT 'active',
-        joining_date TEXT,
-        monthly_fee REAL
-    )
-    """)
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS payments (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        student_id INTEGER,
-        month TEXT,
-        amount REAL,
-        payment_date TEXT
-    )
-    """)
+        # Students table
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS students (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            phone TEXT,
+            seat_id INTEGER,
+            shift TEXT,
+            status TEXT DEFAULT 'active',
+            joining_date TEXT,
+            monthly_fee REAL
+        )
+        """)
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS payments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            student_id INTEGER,
+            month TEXT,
+            amount REAL,
+            payment_date TEXT
+        )
+        """)
 
     ensure_schema(conn)
     ensure_login_settings(conn)
@@ -1433,10 +1671,19 @@ def init_db():
     cur.execute("SELECT COUNT(*) FROM seats")
     if cur.fetchone()[0] == 0:
         for i in range(1, 31):
-            cur.execute(
-                "INSERT INTO seats (id, type) VALUES (?, ?)",
-                (i, "empty")
-            )
+            if conn.backend == "postgres":
+                cur.execute(
+                    """
+                    INSERT INTO seats (id, type) VALUES (?, ?)
+                    ON CONFLICT (id) DO NOTHING
+                    """,
+                    (i, "empty")
+                )
+            else:
+                cur.execute(
+                    "INSERT INTO seats (id, type) VALUES (?, ?)",
+                    (i, "empty")
+                )
 
     conn.commit()
     conn.close()
