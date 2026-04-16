@@ -1668,8 +1668,10 @@ def init_db():
     ensure_login_settings(conn)
 
     # Insert seats if empty
-    cur.execute("SELECT COUNT(*) FROM seats")
-    if cur.fetchone()[0] == 0:
+    cur.execute("SELECT COUNT(*) AS seat_count FROM seats")
+    seat_count_row = cur.fetchone()
+    seat_count = seat_count_row["seat_count"] if seat_count_row else 0
+    if seat_count == 0:
         for i in range(1, 31):
             if conn.backend == "postgres":
                 cur.execute(
