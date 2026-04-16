@@ -199,6 +199,29 @@
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
         }
 
+        .danger-btn {
+            display: inline-block;
+            margin-top: 14px;
+            background: #dc2626;
+            color: white;
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: 1px solid #b91c1c;
+            font-weight: bold;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+            cursor: pointer;
+        }
+
+        .danger-btn:active {
+            background: #b91c1c;
+            box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.18);
+        }
+
+        .inline-form {
+            display: inline-block;
+            margin-left: 10px;
+        }
+
         .back-link {
             display: block;
             width: fit-content;
@@ -324,6 +347,11 @@
                 <div class="meta"><b>Shift:</b> {{ student.shift }}</div>
                 <div class="meta"><b>Joining Date:</b> {{ student.joining_date|full_date if student.joining_date else 'Not set' }}</div>
                 <div class="meta"><b>Monthly Fee:</b> {{ student.monthly_fee or 'Not set' }}</div>
+                <a href="/student/{{ student.id }}/payments" class="history-btn">Payment History</a>
+                <form method="POST" action="/student/{{ student.id }}/delete-inactive" class="inline-form" onsubmit="return confirm('Delete this inactive student permanently? This cannot be undone.');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="danger-btn">Delete Record</button>
+                </form>
             </div>
         {% endfor %}
     </div>

@@ -1410,6 +1410,39 @@ def students():
         search_query=search_query,
     )
 
+
+@app.route("/student/<int:student_id>/delete-inactive", methods=["POST"])
+def delete_inactive_student(student_id):
+    conn = get_db_connection()
+    student = conn.execute(
+        "SELECT * FROM students WHERE id = ?",
+        (student_id,),
+    ).fetchone()
+
+    if not student:
+        conn.close()
+        flash("Student was not found.", "error")
+        return redirect(url_for("students"))
+
+    if student["status"] == "active" and student["seat_id"] is not None:
+        conn.close()
+        flash("Active students cannot be permanently deleted from this screen.", "error")
+        return redirect(url_for("students", seat_id=student["seat_id"]))
+
+    conn.execute(
+        "DELETE FROM payments WHERE student_id = ?",
+        (student_id,),
+    )
+    conn.execute(
+        "DELETE FROM students WHERE id = ?",
+        (student_id,),
+    )
+    conn.commit()
+    conn.close()
+
+    flash("Inactive student record deleted permanently.", "success")
+    return redirect(url_for("students"))
+
 @app.route("/payments", methods=["GET", "POST"])
 def payments():
     conn = get_db_connection()
